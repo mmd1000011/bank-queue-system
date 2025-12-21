@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}سیستم نوبت‌دهی بانک{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="logo">Bank Queue</div>
+      <div class="header-title">سیستم نوبت‌دهی بانک</div>
+    </header>
+
+    <main class="app-main">
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="app-footer">
+      نسخه نمایشی برای پروژه – قابل استقرار روی Docker / CaaS
+    </footer>
+  </div>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

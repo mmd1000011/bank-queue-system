@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}پیشخوان نوبت‌دهی بانک{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h1>پیشخوان نوبت‌دهی</h1>
+    <p>مدیریت نوبت‌ها برای سیستم نوبت‌دهی بانک (Core Service)</p>
+  </div>
+
+  <div class="card-actions">
+    <button class="btn primary" onclick="newTicket()">صدور نوبت جدید</button>
+    <button class="btn secondary" onclick="nextTicket()">فراخوانی نوبت بعدی</button>
+    <button class="btn ghost" onclick="loadTickets()">به‌روزرسانی لیست نوبت‌ها</button>
+  </div>
+
+  <div class="card-inline-form">
+    <label>پایان خدمت نوبت:</label>
+    <input id="doneNumber" type="number" placeholder="شماره نوبت">
+    <button class="btn success" onclick="finishTicket()">ثبت به عنوان انجام شد</button>
+  </div>
+
+  <div id="status" class="status-bar"></div>
+
+  <div class="table-wrapper">
+    <div class="table-header">
+      لیست نوبت‌ها
+    </div>
+    <table id="ticketsTable">
+      <thead>
+        <tr>
+          <th>شماره</th>
+          <th>وضعیت</th>
+          <th>زمان ثبت</th>
+          <th>آخرین به‌روزرسانی</th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function setStatus(message, isError=false) {
+    const el = document.getElementById('status');
+    el.textContent = message;
+    if (isError) {
+      el.classList.add('error');
+    } else {
+      el.classList.remove('error');
+    }
+  }
+
+  function statusBadge(status) {
+    const s = status.toLowerCase();
+    if (s === 'waiting')  return '<span class="badge badge-waiting">در انتظار</span>';
+    if (s === 'serving')  return '<span class="badge badge-serving">در حال خدمت</span>';
+    if (s === 'done')     return '<span class="badge badge-done">انجام شده</span>';
+    if (s === 'missed')   return '<span class="badge badge-missed">غایب</span>';
+    return '<span class="badge badge-other">' + status + '</span>';
+  }
+
+  async function loadTickets() {
+    try {
+      const res = await fetch('/api/tickets');
+      const data = await res.json();
+      const tbody = document.querySelector('#ticketsTable tbody');
+      tbody.innerHTML = '';
+
+      if (!Array.isArray(data) || data.length === 0) {
+        const row = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 4;
+        cell.textContent = 'هنوز نوبتی ثبت نشده است.';
+        row.appendChild(cell);
+        tbody.appendChild(row);
+        return;
+      }
+
+      data.forEach(t => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${t.number}</td>
+          <td>${statusBadge(t.status)}</td>
+          <td>${new Date(t.created_at).toLocaleString('fa-IR')}</td>
+          <td>${new Date(t.updated_at).toLocaleString('fa-IR')}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    } catch (e) {
+      setStatus('خطا در دریافت لیست نوبت‌ها', true);
+    }
+  }
+
+  async function newTicket() {
+    try {
+      const res = await fetch('/api/ticket/new', {method: 'POST'});
+      const data = await res.json();
+      if (res.ok) {
+        setStatus('نوبت جدید با شماره ' + data.ticket.number + ' صادر شد.');
+        loadTickets();
+      } else {
+        setStatus('خطا در صدور نوبت جدید', true);
+      }
+    } catch (e) {
+      setStatus('خطای ارتباط با سرور در صدور نوبت', true);
+    }
+  }
+
+  async function nextTicket() {
+    try {
+      const res = await fetch('/api/ticket/next', {method: 'POST'});
+      const data = await res.json();
+      if (res.ok) {
+        if (data.ticket) {
+          setStatus('نوبت ' + data.ticket.number + ' فراخوانی و در حال خدمت است.');
+        } else {
+          setStatus(data.message || 'نوبت در انتظاری وجود ندارد.');
+        }
+        loadTickets();
+      } else {
+        setStatus('خطا در فراخوانی نوبت بعدی', true);
+      }
+    } catch (e) {
+      setStatus('خطای ارتباط با سرور در فراخوانی نوبت', true);
+    }
+  }
+
+  async function finishTicket() {
+    const numInput = document.getElementById('doneNumber');
+    const number = numInput.value.trim();
+    if (!number) {
+      setStatus('لطفاً شماره نوبت را وارد کنید.', true);
+      return;
+    }
+    try {
+      const res = await fetch('/api/ticket/' + number + '/done', {method: 'POST'});
+      const data = await res.json();
+      if (res.ok) {
+        setStatus('نوبت ' + data.ticket.number + ' به عنوان انجام شده ثبت شد.');
+        numInput.value = '';
+        loadTickets();
+      } else {
+        setStatus(data.error || 'خطا در ثبت پایان خدمت', true);
+      }
+    } catch (e) {
+      setStatus('خطای ارتباط با سرور در پایان خدمت', true);
+    }
+  }
+
+  loadTickets();
+</script>
+{% endblock %}
